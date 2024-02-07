@@ -427,7 +427,7 @@ namespace TeamFiltration.Modules
                     _databaseHandle.WriteLog(new Log("ENUM", $"Warning, this method may give some false positive accounts", ""));
                     _databaseHandle.WriteLog(new Log("ENUM", $"Enumerating {userListData.Count()} possible accounts, this will take ~{approcTime} minutes", ""));
 
-                    (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl) enumUserUrl = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.com", (new Random()).Next(0, _globalProperties.AWSRegions.Length));
+                    Models.AWS.FireProxEndpoint enumUserUrl = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.com", (new Random()).Next(0, _globalProperties.AWSRegions.Length));
 
                     //Check if this options is possible
                     if (!domain.StartsWith("@"))
@@ -435,7 +435,7 @@ namespace TeamFiltration.Modules
                         domain = "@" + domain;
                     }
 
-                    string url = $"{enumUserUrl.fireProxUrl}common/GetCredentialType";
+                    string url = $"{enumUserUrl.FireProxURL}common/GetCredentialType";
 
                     //This method only works for Tenants were AAD is federating, not adfs or any third party auth
 
@@ -459,7 +459,7 @@ namespace TeamFiltration.Modules
                     }
 
 
-                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.Item1.RestApiId, enumUserUrl.Item2.Region);
+                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.RestApiId, enumUserUrl.Region);
                 }
                 else if (options.ValidateAccsTeams)
                 {
@@ -502,11 +502,11 @@ namespace TeamFiltration.Modules
                             _databaseHandle.WriteLog(new Log("ENUM", $"Loaded {userListData.Count()} usernames", ""));
 
 
-                            (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl) enumUserUrl = _globalProperties.GetFireProxURLObject("https://teams.microsoft.com/api/mt/", (new Random()).Next(0, _globalProperties.AWSRegions.Length));
+                            Models.AWS.FireProxEndpoint enumUserUrl = _globalProperties.GetFireProxURLObject("https://teams.microsoft.com/api/mt/", (new Random()).Next(0, _globalProperties.AWSRegions.Length));
 
                             //Perfom an sanity check to make sure we can validate anything for this tenant at all
 
-                            var sanityCheck = await ValidUserWrapperTeams(teamsHandler, "ThisUserShouldNotExist@" + userListData.FirstOrDefault().Split('@')[1], enumUserUrl.fireProxUrl);
+                            var sanityCheck = await ValidUserWrapperTeams(teamsHandler, "ThisUserShouldNotExist@" + userListData.FirstOrDefault().Split('@')[1], enumUserUrl.FireProxURL);
                             if (sanityCheck == true)
                             {
                                 _databaseHandle.WriteLog(new Log("ENUM", $"Pre-Enum sanity check failed, cannot enum this tenant!", ""));
@@ -518,13 +518,13 @@ namespace TeamFiltration.Modules
                                 await userListData.ParallelForEachAsync(
                                    async user =>
                                    {
-                                       await ValidUserWrapperTeams(teamsHandler, user, enumUserUrl.fireProxUrl);
+                                       await ValidUserWrapperTeams(teamsHandler, user, enumUserUrl.FireProxURL);
                                    },
                                    maxDegreeOfParallelism: 300);
                             }
 
 
-                            await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.Item1.RestApiId, enumUserUrl.Item2.Region);
+                            await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.RestApiId, enumUserUrl.Region);
 
                         }
                         else
@@ -547,21 +547,21 @@ namespace TeamFiltration.Modules
                     _databaseHandle.WriteLog(new Log("ENUM", $"Enumerating {userListData.Count()} accounts with password {tempPw}, this will take ~{approxTime} minutes", ""));
 
 
-                    (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl) enumUserUrl
+                    Models.AWS.FireProxEndpoint enumUserUrl
                         = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.com", (new Random()).Next(0, _globalProperties.AWSRegions.Length));
 
 
                     await userListData.ParallelForEachAsync(
                         async user =>
                         {
-                            await ValidUserWrapperLogin(msolHandler, user, tempPw, $"https://{enumUserUrl.Item1.RestApiId}.execute-api.{enumUserUrl.Item2.Region}.amazonaws.com/fireprox/common/oauth2/token");
+                            await ValidUserWrapperLogin(msolHandler, user, tempPw, $"https://{enumUserUrl.RestApiId}.execute-api.{enumUserUrl.Region}.amazonaws.com/fireprox/common/oauth2/token");
 
                         },
                         maxDegreeOfParallelism: 100);
 
 
 
-                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.Item1.RestApiId, enumUserUrl.Item2.Region);
+                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(enumUserUrl.RestApiId, enumUserUrl.Region);
                 }
 
 

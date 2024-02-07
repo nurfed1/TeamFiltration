@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using TeamFiltration.Models.AWS;
 using TeamFiltration.Models.TeamFiltration;
 
 namespace TeamFiltration.Handlers
@@ -16,12 +17,12 @@ namespace TeamFiltration.Handlers
         */
         private static GlobalArgumentsHandler _globalProperties { get; set; }
         private static DatabaseHandler _databaseHandler { get; set; }
-        private static BasicAWSCredentials _basicAWSCredentials { get; set; }
+        private static AWSCredentials _AWSCredentials { get; set; }
 
 
         public async Task<bool> DeleteFireProxEndpoint(string fireProxId, string region)
         {
-            var amazonAPIGatewayClient = new AmazonAPIGatewayClient(_basicAWSCredentials, Amazon.RegionEndpoint.GetBySystemName(region));
+            var amazonAPIGatewayClient = new AmazonAPIGatewayClient(_AWSCredentials, Amazon.RegionEndpoint.GetBySystemName(region));
 
             Amazon.APIGateway.Model.DeleteRestApiResponse deleteRestApiResponse = await amazonAPIGatewayClient.DeleteRestApiAsync(new Amazon.APIGateway.Model.DeleteRestApiRequest() { RestApiId = fireProxId });
 
@@ -50,9 +51,16 @@ namespace TeamFiltration.Handlers
             }
         }
         */
-        public async Task<(Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint)> CreateFireProxEndPoint(string url, string title, string region)
+        public async Task<Models.AWS.FireProxEndpoint> CreateFireProxEndPoint(string url, string title, string region)
         {
-            var amazonAPIGatewayClient = new AmazonAPIGatewayClient(_basicAWSCredentials, Amazon.RegionEndpoint.GetBySystemName(region));
+            FireProxEndpoint endpoint = _databaseHandler.QueryFireProxEndpoint(region);
+
+            if (endpoint != null)
+            {
+                return endpoint;
+
+            }
+            var amazonAPIGatewayClient = new AmazonAPIGatewayClient(_AWSCredentials, Amazon.RegionEndpoint.GetBySystemName(region));
 
             if (url.EndsWith('/'))
                 url = url.Substring(0, url.Length - 1);
@@ -195,17 +203,26 @@ namespace TeamFiltration.Handlers
             _databaseHandler.WriteFireProxEndpoint(fireproxEndpoint);
 
 
-            return (createDeploymentRequest, fireproxEndpoint);
+            return fireproxEndpoint;
         }
 
-        public AWSHandler(string AWSAccessKey, string AWSSecretKey, DatabaseHandler databaseHandler)
+        public AWSHandler(string AWSAccessKey, string AWSSecretKey, string AWSSessionToken, DatabaseHandler databaseHandler)
         {
             _databaseHandler = databaseHandler;
 
-            if (!string.IsNullOrEmpty(AWSAccessKey) && !string.IsNullOrEmpty(AWSSecretKey))
+            if (!string.IsNullOrEmpty(AWSAccessKey) && !string.IsNullOrEmpty(AWSSecretKey) && !string.IsNullOrEmpty(AWSSessionToken))
             {
 
-                _basicAWSCredentials = new BasicAWSCredentials(
+                _AWSCredentials = new SessionAWSCredentials(
+                    AWSAccessKey,
+                    AWSSecretKey,
+                    AWSSessionToken
+                    );
+            }
+            else if(!string.IsNullOrEmpty(AWSAccessKey) && !string.IsNullOrEmpty(AWSSecretKey))
+            {
+
+                _AWSCredentials = new BasicAWSCredentials(
                     AWSAccessKey,
                     AWSSecretKey
                     );

