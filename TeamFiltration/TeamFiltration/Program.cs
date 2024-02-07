@@ -51,7 +51,8 @@ namespace TeamFiltration
 
             Console.WriteLine("         --sleep-min           Minimum minutes to sleep between each full rotation of spraying default=60");
             Console.WriteLine("         --sleep-max           Maximum minutes to sleep between each full rotation of spraying default=100");
-            Console.WriteLine("         --jitter              Seconds between each individual authentication attempt. default=0");
+            Console.WriteLine("         --jitter-min          Min seconds between each individual authentication attempt. default=0");
+            Console.WriteLine("         --jitter-max          Max seconds between each individual authentication attempt. default=0");
             Console.WriteLine("         --time-window         Defines a time windows where spraying should accour, in the military time format <12:00-19:00>");
             Console.WriteLine("         --push                Get Pushover notifications when valid credentials are found (requires pushover keys in config)");
             Console.WriteLine("         --push-locked         Get Pushover notifications when an sprayed account gets locked (requires pushover keys in config)");

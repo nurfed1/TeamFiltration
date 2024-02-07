@@ -151,6 +151,13 @@ namespace TeamFiltration.Handlers
             return orders.FindAll().ToList();
         }
 
+        internal FireProxEndpoint QueryFireProxEndpoint(string region)
+        {
+
+            var collection = _globalDatabase.GetCollection<FireProxEndpoint>("fireproxendpoints");
+
+            return collection.FindOne($"$.Region = '{region}'");
+        }
 
 
         public void WriteSprayAttempt(SprayAttempt inputData, GlobalArgumentsHandler _globalPropertiesHandler)
@@ -173,26 +180,28 @@ namespace TeamFiltration.Handlers
 
         public void WriteLog(Log inputLog, bool printLog = true, bool WriteLine = true)
         {
-            //TimeZoneInfo
-
             //TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            TimeZoneInfo easternZone = TZConvert.GetTimeZoneInfo("Eastern Standard Time");
+            //TimeZoneInfo easternZone = TZConvert.GetTimeZoneInfo("Eastern Standard Time");
 
             if (printLog)
                 if (string.IsNullOrEmpty(inputLog.Prefix))
                     if (WriteLine)
-                        Console.WriteLine($"[{inputLog.Module}] { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {inputLog.Message}");
+                        // Console.WriteLine($"[{inputLog.Module}] { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {inputLog.Message}");
+                        Console.WriteLine($"[{inputLog.Module}] {inputLog.Timestamp} {inputLog.Message}");
                     else
-                        Console.Write($"\r[{inputLog.Module}] { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {inputLog.Message}");
+                        // Console.Write($"\r[{inputLog.Module}] { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {inputLog.Message}");
+                        Console.Write($"\r[{inputLog.Module}] {inputLog.Timestamp} {inputLog.Message}");
                 else
                 {
                     var msgPartOne = inputLog.Message.Split("=>")[0];
                     var msgPartTwo = inputLog.Message.Split("=>")[1];
                     var message = msgPartOne.PadRight(60) + "=>" + msgPartTwo;
                     if (WriteLine)
-                        Console.WriteLine($"[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {message}");
+                        // Console.WriteLine($"[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {message}");
+                        Console.WriteLine($"[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} {inputLog.Timestamp} {message}");
                     else
-                        Console.Write($"\r[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {message}");
+                        // Console.Write($"\r[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} { TimeZoneInfo.ConvertTimeFromUtc(inputLog.Timestamp.ToUniversalTime(), easternZone)} EST {message}");
+                        Console.Write($"\r[{inputLog.Module}] {inputLog.Prefix.PadRight(12)} {inputLog.Timestamp} {message}");
                 }
 
 

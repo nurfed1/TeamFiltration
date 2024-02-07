@@ -18,6 +18,7 @@ namespace TeamFiltration.Models.TeamFiltration
         public string proxyEndpoint { get; set; }
         public string AWSAccessKey { get; set; }
         public string AWSSecretKey { get; set; }
+        public string AWSSessionToken { get; set; }
 
    
         public string UserAgent { get; set; } 

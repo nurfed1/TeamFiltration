@@ -117,7 +117,7 @@ namespace TeamFiltration.Handlers
             //Do AWS FireProx generation checks
             if (!string.IsNullOrEmpty(TeamFiltrationConfig?.AWSSecretKey) && !string.IsNullOrEmpty(TeamFiltrationConfig?.AWSAccessKey))
             {
-                _awsHandler = new AWSHandler(this.TeamFiltrationConfig.AWSAccessKey, this.TeamFiltrationConfig.AWSSecretKey, databaseHandler);
+                _awsHandler = new AWSHandler(this.TeamFiltrationConfig.AWSAccessKey, this.TeamFiltrationConfig.AWSSecretKey, this.TeamFiltrationConfig.AWSSessionToken, databaseHandler);
 
             }
       
@@ -149,15 +149,15 @@ namespace TeamFiltration.Handlers
             return "https://login.microsoftonline.com/common/oauth2/token";
         }
 
-        public (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint, string fireProxUrl) GetFireProxURLObject(string url, int regionCounter)
+        public Models.AWS.FireProxEndpoint GetFireProxURLObject(string url, int regionCounter)
         {
             var currentRegion = this.AWSRegions[regionCounter];
             var domainBase = _domainParser.Parse(url);
-            (Amazon.APIGateway.Model.CreateDeploymentRequest, Models.AWS.FireProxEndpoint) awsEndpoint = _awsHandler.CreateFireProxEndPoint(url, domainBase.Domain, currentRegion).GetAwaiter().GetResult();
-            return (awsEndpoint.Item1, awsEndpoint.Item2, $"https://{awsEndpoint.Item1.RestApiId}.execute-api.{currentRegion}.amazonaws.com/fireprox/");
+            Models.AWS.FireProxEndpoint awsEndpoint = _awsHandler.CreateFireProxEndPoint(url, domainBase.Domain, currentRegion).GetAwaiter().GetResult();
 
-
+            return awsEndpoint;
         }
+
         private string EnsurePathChar(string outPutPath)
         {
             foreach (var invalidChar in Path.GetInvalidPathChars())
